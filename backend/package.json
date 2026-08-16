@@ -1,0 +1,17 @@
+{
+  "name": "complaint-management",
+  "version": "1.0.0",
+  "description": "Simple complaint management website using only Node.js built-ins",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "complaint",
+    "nodejs",
+    "javascript",
+    "beginner-project"
+  ],
+  "author": "",
+  "license": "MIT"
+}
