@@ -169,6 +169,14 @@ function serveFrontend(req, res) {
   });
 }
 
+function normalizePathname(pathname) {
+  if (!pathname || pathname === "/") {
+    return "/";
+  }
+
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
 function readRequestBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -199,31 +207,35 @@ function readRequestBody(req) {
 }
 
 async function handleApi(req, res) {
+  const method = req.method.toUpperCase();
   const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-  const parts = requestUrl.pathname.split("/").filter(Boolean);
+  const pathname = normalizePathname(requestUrl.pathname);
+  const parts = pathname.split("/").filter(Boolean);
+
+  if (pathname === "/api/health") {
+    sendJson(res, 200, { status: "ok", message: "Server is healthy" });
+    return;
+  }
 
   if (parts[0] !== "api" || parts[1] !== "complaints") {
-    if (requestUrl.pathname === "/api/health") {
-      sendJson(res, 200, { status: "ok", message: "Server is healthy" });
-      return;
-    }
-
     sendJson(res, 404, { message: "Route not found." });
     return;
   }
 
-  if (req.method === "OPTIONS") {
+  if (method === "OPTIONS") {
     sendEmpty(res, 204);
     return;
   }
 
-  if (req.method === "GET" && parts.length === 2) {
+  const complaintId = parts.length >= 3 ? parts[2] : null;
+
+  if (method === "GET" && parts.length === 2) {
     sendJson(res, 200, complaints);
     return;
   }
 
-  if (req.method === "GET" && parts.length === 3) {
-    const complaint = getComplaintById(parts[2]);
+  if (method === "GET" && parts.length === 3) {
+    const complaint = getComplaintById(complaintId);
     if (!complaint) {
       sendJson(res, 404, { message: "Complaint not found." });
       return;
@@ -232,7 +244,7 @@ async function handleApi(req, res) {
     return;
   }
 
-  if (req.method === "POST" && parts.length === 2) {
+  if (method === "POST" && parts.length === 2) {
     try {
       const data = await readRequestBody(req);
       const validation = validateComplaint(data);
@@ -257,9 +269,9 @@ async function handleApi(req, res) {
     return;
   }
 
-  if (req.method === "PUT" && parts.length === 3) {
+  if (method === "PUT" && parts.length === 3) {
     try {
-      const complaint = getComplaintById(parts[2]);
+      const complaint = getComplaintById(complaintId);
       if (!complaint) {
         sendJson(res, 404, { message: "Complaint not found." });
         return;
@@ -290,9 +302,9 @@ async function handleApi(req, res) {
     return;
   }
 
-  if (req.method === "PATCH" && parts.length === 4 && parts[3] === "status") {
+  if (method === "PATCH" && parts.length === 4 && parts[3] === "status") {
     try {
-      const complaint = getComplaintById(parts[2]);
+      const complaint = getComplaintById(complaintId);
       if (!complaint) {
         sendJson(res, 404, { message: "Complaint not found." });
         return;
@@ -315,8 +327,8 @@ async function handleApi(req, res) {
     return;
   }
 
-  if (req.method === "DELETE" && parts.length === 3) {
-    const complaint = getComplaintById(parts[2]);
+  if (method === "DELETE" && parts.length === 3) {
+    const complaint = getComplaintById(complaintId);
     if (!complaint) {
       sendJson(res, 404, { message: "Complaint not found." });
       return;
@@ -330,23 +342,42 @@ async function handleApi(req, res) {
     return;
   }
 
+  if (method === "POST" && parts.length === 3) {
+    sendJson(res, 404, {
+      message: "Route not found. Use POST /api/complaints to create a complaint.",
+    });
+    return;
+  }
+
+  if (method === "DELETE" && parts.length === 2) {
+    sendJson(res, 404, {
+      message: "Route not found. Use DELETE /api/complaints/:id with a complaint id.",
+    });
+    return;
+  }
+
   sendJson(res, 404, { message: "Route not found." });
 }
 
 const app = http.createServer(async (req, res) => {
-  const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  try {
+    const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    const pathname = normalizePathname(requestUrl.pathname);
 
-  if (requestUrl.pathname.startsWith("/api/")) {
-    await handleApi(req, res);
-    return;
+    if (pathname.startsWith("/api/")) {
+      await handleApi(req, res);
+      return;
+    }
+
+    if (pathname === "/") {
+      serveStaticFile(res, path.join(frontendDir, "index.html"));
+      return;
+    }
+
+    serveFrontend(req, res);
+  } catch (error) {
+    sendJson(res, 500, { message: error.message || "Internal server error." });
   }
-
-  if (requestUrl.pathname === "/") {
-    serveStaticFile(res, path.join(frontendDir, "index.html"));
-    return;
-  }
-
-  serveFrontend(req, res);
 });
 
 if (require.main === module) {
