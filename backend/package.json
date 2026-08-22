@@ -4,7 +4,8 @@
   "description": "Simple complaint management website using only Node.js built-ins",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test api.test.js"
   },
   "keywords": [
     "complaint",

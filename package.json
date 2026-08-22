@@ -1,0 +1,10 @@
+{
+  "name": "complaint-management",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Complaint management website",
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "npm --prefix backend test"
+  }
+}
